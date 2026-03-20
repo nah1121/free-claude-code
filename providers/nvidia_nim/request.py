@@ -34,7 +34,8 @@ def build_request_body(request_data: Any, nim: NimSettings) -> dict:
         getattr(request_data, "model", "?"),
         len(getattr(request_data, "messages", [])),
     )
-    body = build_base_request_body(request_data)
+    # NIM requires sanitized tool names (hyphens -> underscores)
+    body = build_base_request_body(request_data, sanitize_tool_names=True)
 
     # NIM-specific max_tokens: cap against nim.max_tokens
     max_tokens = body.get("max_tokens") or getattr(request_data, "max_tokens", None)
