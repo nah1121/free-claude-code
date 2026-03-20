@@ -150,13 +150,22 @@ class AnthropicToOpenAIConverter:
         return result
 
     @staticmethod
-    def convert_tools(tools: list[Any]) -> list[dict[str, Any]]:
-        """Convert Anthropic tools to OpenAI format."""
+    def convert_tools(
+        tools: list[Any], *, sanitize_name: bool = False
+    ) -> list[dict[str, Any]]:
+        """Convert Anthropic tools to OpenAI format.
+
+        Args:
+            tools: List of Anthropic tool objects
+            sanitize_name: If True, replace hyphens with underscores in tool names.
+                          Required for some providers (e.g. NVIDIA NIM) that don't
+                          accept hyphens in function names.
+        """
         return [
             {
                 "type": "function",
                 "function": {
-                    "name": tool.name,
+                    "name": tool.name.replace("-", "_") if sanitize_name else tool.name,
                     "description": tool.description or "",
                     "parameters": tool.input_schema,
                 },
@@ -185,12 +194,19 @@ def build_base_request_body(
     *,
     default_max_tokens: int | None = None,
     include_reasoning_for_openrouter: bool = False,
+    sanitize_tool_names: bool = False,
 ) -> dict[str, Any]:
     """Build the common parts of an OpenAI-format request body.
 
     Handles message conversion, system prompt, max_tokens, temperature,
     top_p, stop sequences, tools, and tool_choice. Provider-specific
     parameters (extra_body, penalties, NIM settings) are added by callers.
+
+    Args:
+        request_data: The Anthropic-format request data
+        default_max_tokens: Default max_tokens if not set in request
+        include_reasoning_for_openrouter: Include reasoning_content for OpenRouter
+        sanitize_tool_names: Replace hyphens with underscores in tool names
     """
     from providers.common.utils import set_if_not_none
 
@@ -218,7 +234,9 @@ def build_base_request_body(
 
     tools = getattr(request_data, "tools", None)
     if tools:
-        body["tools"] = AnthropicToOpenAIConverter.convert_tools(tools)
+        body["tools"] = AnthropicToOpenAIConverter.convert_tools(
+            tools, sanitize_name=sanitize_tool_names
+        )
     tool_choice = getattr(request_data, "tool_choice", None)
     if tool_choice:
         body["tool_choice"] = tool_choice

@@ -79,6 +79,43 @@ def test_convert_tools():
     assert result[1]["function"]["description"] == ""  # Check default empty string
 
 
+def test_convert_tools_sanitize_names():
+    """Test that sanitize_name replaces hyphens with underscores."""
+    tools = [
+        MockTool(
+            "mcp__plugin_chrome-devtools-mcp_chrome-devtools__get_console_message",
+            "Get console messages",
+            {"type": "object"},
+        ),
+        MockTool("my-tool-name", "Tool with hyphens", {"type": "object"}),
+        MockTool("normal_tool", "Normal tool", {"type": "object"}),
+    ]
+    result = AnthropicToOpenAIConverter.convert_tools(tools, sanitize_name=True)
+    assert len(result) == 3
+
+    # Hyphens should be replaced with underscores
+    assert (
+        result[0]["function"]["name"]
+        == "mcp__plugin_chrome_devtools_mcp_chrome_devtools__get_console_message"
+    )
+    assert result[1]["function"]["name"] == "my_tool_name"
+    # Underscores should remain unchanged
+    assert result[2]["function"]["name"] == "normal_tool"
+
+
+def test_convert_tools_no_sanitize():
+    """Test that names are preserved when sanitize_name is False."""
+    tools = [
+        MockTool("my-tool-name", "Tool with hyphens", {"type": "object"}),
+    ]
+    result = AnthropicToOpenAIConverter.convert_tools(tools, sanitize_name=False)
+    assert result[0]["function"]["name"] == "my-tool-name"
+
+    # Default should also preserve hyphens
+    result = AnthropicToOpenAIConverter.convert_tools(tools)
+    assert result[0]["function"]["name"] == "my-tool-name"
+
+
 # --- Message Conversion Tests: User ---
 
 
