@@ -166,3 +166,50 @@ class TestBuildRequestBody:
         assert body["extra_body"]["chat_template_kwargs"]["thinking"] is True
         assert "thinking" in body["extra_body"]
         assert "reasoning_split" in body["extra_body"]
+
+    def test_tool_choice_sanitization(self):
+        """Tool choice with hyphens should be sanitized for NIM."""
+
+        class MockTool:
+            def __init__(self, name):
+                self.name = name
+                self.description = "Test tool"
+                self.input_schema = {"type": "object"}
+
+        req = MagicMock()
+        req.model = "mistralai/devstral-2-123b-instruct-2512"
+        req.messages = [MagicMock(role="user", content="hi")]
+        req.max_tokens = 100
+        req.system = None
+        req.temperature = None
+        req.top_p = None
+        req.stop_sequences = None
+        req.tools = [
+            MockTool(
+                "mcp__plugin_chrome-devtools-mcp_chrome-devtools__get_console_message"
+            )
+        ]
+        req.tool_choice = {
+            "type": "tool",
+            "name": "mcp__plugin_chrome-devtools-mcp_chrome-devtools__get_console_message",
+        }
+        req.extra_body = None
+        req.top_k = None
+
+        nim = NimSettings()
+        body = build_request_body(req, nim)
+
+        # Tool names should be sanitized (hyphens -> underscores)
+        assert "tools" in body
+        assert len(body["tools"]) == 1
+        assert (
+            body["tools"][0]["function"]["name"]
+            == "mcp__plugin_chrome_devtools_mcp_chrome_devtools__get_console_message"
+        )
+
+        # Tool choice name should also be sanitized
+        assert "tool_choice" in body
+        assert (
+            body["tool_choice"]["name"]
+            == "mcp__plugin_chrome_devtools_mcp_chrome_devtools__get_console_message"
+        )

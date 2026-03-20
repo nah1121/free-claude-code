@@ -174,6 +174,30 @@ class AnthropicToOpenAIConverter:
         ]
 
     @staticmethod
+    def sanitize_tool_choice(
+        tool_choice: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
+        """Sanitize tool_choice by replacing hyphens with underscores in the name.
+
+        Args:
+            tool_choice: The tool_choice dictionary that may contain a 'name' field
+
+        Returns:
+            A new dictionary with sanitized name, or None if tool_choice is None
+        """
+        if tool_choice is None:
+            return None
+
+        # Create a shallow copy to avoid modifying the original
+        sanitized = tool_choice.copy()
+
+        # If tool_choice has a 'name' field, sanitize it
+        if "name" in sanitized:
+            sanitized["name"] = sanitized["name"].replace("-", "_")
+
+        return sanitized
+
+    @staticmethod
     def convert_system_prompt(system: Any) -> dict[str, str] | None:
         """Convert Anthropic system prompt to OpenAI format."""
         if isinstance(system, str):
@@ -239,6 +263,11 @@ def build_base_request_body(
         )
     tool_choice = getattr(request_data, "tool_choice", None)
     if tool_choice:
-        body["tool_choice"] = tool_choice
+        if sanitize_tool_names:
+            body["tool_choice"] = AnthropicToOpenAIConverter.sanitize_tool_choice(
+                tool_choice
+            )
+        else:
+            body["tool_choice"] = tool_choice
 
     return body

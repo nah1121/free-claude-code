@@ -116,6 +116,48 @@ def test_convert_tools_no_sanitize():
     assert result[0]["function"]["name"] == "my-tool-name"
 
 
+# --- Tool Choice Sanitization Tests ---
+
+
+def test_sanitize_tool_choice_with_name():
+    """Test that sanitize_tool_choice replaces hyphens with underscores in name."""
+    tool_choice = {
+        "type": "tool",
+        "name": "mcp__plugin_chrome-devtools-mcp_chrome-devtools__get_console_message",
+    }
+    result = AnthropicToOpenAIConverter.sanitize_tool_choice(tool_choice)
+    assert result is not None
+    assert (
+        result["name"]
+        == "mcp__plugin_chrome_devtools_mcp_chrome_devtools__get_console_message"
+    )
+    assert result["type"] == "tool"
+
+
+def test_sanitize_tool_choice_none():
+    """Test that sanitize_tool_choice handles None input."""
+    result = AnthropicToOpenAIConverter.sanitize_tool_choice(None)
+    assert result is None
+
+
+def test_sanitize_tool_choice_no_name():
+    """Test that sanitize_tool_choice works with tool_choice that has no name."""
+    tool_choice = {"type": "auto"}
+    result = AnthropicToOpenAIConverter.sanitize_tool_choice(tool_choice)
+    assert result == {"type": "auto"}
+
+
+def test_sanitize_tool_choice_does_not_modify_original():
+    """Test that sanitize_tool_choice does not modify the original dict."""
+    original = {"type": "tool", "name": "my-tool-name"}
+    result = AnthropicToOpenAIConverter.sanitize_tool_choice(original)
+    # Original should be unchanged
+    assert original["name"] == "my-tool-name"
+    # Result should have sanitized name
+    assert result is not None
+    assert result["name"] == "my_tool_name"
+
+
 # --- Message Conversion Tests: User ---
 
 
