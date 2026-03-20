@@ -21,6 +21,12 @@ def _set_extra(
     extra_body[key] = value
 
 
+def _is_mistral_model(model: str) -> bool:
+    """Check if model is a Mistral model that doesn't support chat_template."""
+    model_lower = model.lower()
+    return "mistral" in model_lower or "mixtral" in model_lower
+
+
 def build_request_body(request_data: Any, nim: NimSettings) -> dict:
     """Build OpenAI-format request body from Anthropic request."""
     logger.debug(
@@ -63,18 +69,20 @@ def build_request_body(request_data: Any, nim: NimSettings) -> dict:
     if request_extra:
         extra_body.update(request_extra)
 
-    # Handle thinking/reasoning mode
-    extra_body.setdefault("thinking", {"type": "enabled"})
-    extra_body.setdefault("reasoning_split", True)
-    extra_body.setdefault(
-        "chat_template_kwargs",
-        {
-            "thinking": True,
-            "enable_thinking": True,
-            "reasoning_split": True,
-            "clear_thinking": False,
-        },
-    )
+    # Handle thinking/reasoning mode (skip for Mistral models that don't support it)
+    model = getattr(request_data, "model", "")
+    if not _is_mistral_model(model):
+        extra_body.setdefault("thinking", {"type": "enabled"})
+        extra_body.setdefault("reasoning_split", True)
+        extra_body.setdefault(
+            "chat_template_kwargs",
+            {
+                "thinking": True,
+                "enable_thinking": True,
+                "reasoning_split": True,
+                "clear_thinking": False,
+            },
+        )
 
     req_top_k = getattr(request_data, "top_k", None)
     top_k = req_top_k if req_top_k is not None else nim.top_k
