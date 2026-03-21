@@ -150,38 +150,61 @@ ANTHROPIC_AUTH_TOKEN="freecc" ANTHROPIC_BASE_URL="http://localhost:8082" claude
 
 That's it! Claude Code now uses your configured provider for free.
 
-### OpenClaw configuration
+### OpenClaw Configuration
 
 You can point OpenClaw at this proxy so its agents use your NIM/OpenRouter/LM Studio setup.
 
-1) Start the proxy: `uv run uvicorn server:app --host 0.0.0.0 --port 8082`
-2) In your OpenClaw config (e.g., `~/.openclaw/config.json`), set the NVIDIA provider to Anthropic compatibility:
+**No additional configuration needed!** The proxy automatically handles tool call format conversion.
 
-```json
-{
-  "providers": {
-    "nvidia": {
-      "api": "anthropic-messages",
-      "baseUrl": "http://localhost:8082",
-      "apiKey": "freecc",
-      "models": [
-        { "id": "nvidia_nim/moonshotai/kimi-k2-thinking", "name": "Kimi K2 Thinking" },
-        { "id": "nvidia_nim/qwen/qwen3-coder-480b-a35b-instruct", "name": "Qwen 3 Coder 480B" },
-        { "id": "nvidia_nim/nvidia/nemotron-3-super-120b-a12b", "name": "Nemotron 3 Super 120B" }
-      ]
-    }
-  },
-  "agents": {
-    "defaults": {
-      "model": {
-        "primary": "nvidia/nvidia_nim/moonshotai/kimi-k2-thinking"
-      }
-    }
-  }
-}
-```
+#### Setup Steps
 
-3) Save and restart OpenClaw (or rerun its wizard). All OpenClaw tool calls will now route through the proxy via `http://localhost:8082` with the `freecc` token.
+1. **Start the proxy** (in your free-claude-code directory):
+   ```bash
+   uv run uvicorn server:app --host 0.0.0.0 --port 8082
+   ```
+
+2. **Configure OpenClaw** (edit `~/.openclaw/config.json`):
+   ```json
+   {
+     "providers": {
+       "nvidia": {
+         "api": "anthropic-messages",
+         "baseUrl": "http://localhost:8082",
+         "apiKey": "freecc",
+         "models": [
+           { "id": "nvidia_nim/moonshotai/kimi-k2-thinking", "name": "Kimi K2 Thinking" },
+           { "id": "nvidia_nim/qwen/qwen3-coder-480b-a35b-instruct", "name": "Qwen 3 Coder 480B" },
+           { "id": "nvidia_nim/nvidia/nemotron-3-super-120b-a12b", "name": "Nemotron 3 Super 120B" }
+         ]
+       }
+     },
+     "agents": {
+       "defaults": {
+         "model": {
+           "primary": "nvidia/nvidia_nim/moonshotai/kimi-k2-thinking"
+         }
+       }
+     }
+   }
+   ```
+
+3. **Save and restart OpenClaw** (or rerun its wizard).
+
+#### Important Notes
+
+- **Model ID Format**: Use `nvidia_nim/<publisher>/<model>` format in the `id` field
+- **Provider Path**: The `primary` model should include the provider prefix: `nvidia/nvidia_nim/...`
+- **API Key**: The `apiKey` value (`freecc`) is required but can be any non-empty string
+- **Tool Calls**: The proxy automatically converts tool calls between Anthropic and OpenAI formats
+- **Compatibility**: This setup works with both Claude Code and OpenClaw simultaneously
+
+#### Troubleshooting
+
+If you encounter errors:
+1. **404 Function Not Found**: Ensure you're using the latest version of this proxy (the tool_choice conversion fix is included)
+2. **Connection Refused**: Verify the proxy is running on `http://localhost:8082`
+3. **Model Not Found**: Check that your `.env` file has the correct `NVIDIA_NIM_API_KEY` and model mappings
+4. **Debug Mode**: Set `LOG_LEVEL=DEBUG` in `.env` to see detailed request logs
 
 <details>
 <summary><b>VSCode Extension Setup</b></summary>
