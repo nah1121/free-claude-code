@@ -34,6 +34,7 @@ class AnthropicToOpenAIConverter:
         reasoning continuation.
         """
         result = []
+        open_tool_call_ids: set[str] = set()
 
         for msg in messages:
             role = msg.role
@@ -43,16 +44,23 @@ class AnthropicToOpenAIConverter:
                 result.append({"role": role, "content": content})
             elif isinstance(content, list):
                 if role == "assistant":
-                    result.extend(
+                    assistant_messages, assistant_tool_call_ids = (
                         AnthropicToOpenAIConverter._convert_assistant_message(
                             content,
                             include_reasoning_for_openrouter=include_reasoning_for_openrouter,
                         )
                     )
+                    result.extend(assistant_messages)
+                    open_tool_call_ids.update(assistant_tool_call_ids)
                 elif role == "user":
-                    result.extend(
-                        AnthropicToOpenAIConverter._convert_user_message(content)
+                    user_messages, consumed_tool_call_ids = (
+                        AnthropicToOpenAIConverter._convert_user_message(
+                            content,
+                            open_tool_call_ids,
+                        )
                     )
+                    result.extend(user_messages)
+                    open_tool_call_ids.difference_update(consumed_tool_call_ids)
             else:
                 result.append({"role": role, "content": str(content)})
 
@@ -63,11 +71,12 @@ class AnthropicToOpenAIConverter:
         content: list[Any],
         *,
         include_reasoning_for_openrouter: bool = False,
-    ) -> list[dict[str, Any]]:
+    ) -> tuple[list[dict[str, Any]], set[str]]:
         """Convert assistant message blocks, preserving interleaved thinking+text order."""
         content_parts: list[str] = []
         thinking_parts: list[str] = []
         tool_calls: list[dict[str, Any]] = []
+        tool_call_ids: set[str] = set()
 
         for block in content:
             block_type = get_block_type(block)
@@ -80,19 +89,22 @@ class AnthropicToOpenAIConverter:
                 if include_reasoning_for_openrouter:
                     thinking_parts.append(thinking)
             elif block_type == "tool_use":
+                tool_id = str(get_block_attr(block, "id", "") or "").strip()
                 tool_input = get_block_attr(block, "input", {})
-                tool_calls.append(
-                    {
-                        "id": get_block_attr(block, "id"),
-                        "type": "function",
-                        "function": {
-                            "name": get_block_attr(block, "name"),
-                            "arguments": json.dumps(tool_input)
-                            if isinstance(tool_input, dict)
-                            else str(tool_input),
-                        },
-                    }
-                )
+                if tool_id:
+                    tool_call_ids.add(tool_id)
+                    tool_calls.append(
+                        {
+                            "id": tool_id,
+                            "type": "function",
+                            "function": {
+                                "name": get_block_attr(block, "name"),
+                                "arguments": json.dumps(tool_input)
+                                if isinstance(tool_input, dict)
+                                else str(tool_input),
+                            },
+                        }
+                    )
 
         content_str = "\n\n".join(content_parts)
 
@@ -110,13 +122,17 @@ class AnthropicToOpenAIConverter:
         if include_reasoning_for_openrouter and thinking_parts:
             msg["reasoning_content"] = "\n".join(thinking_parts)
 
-        return [msg]
+        return [msg], tool_call_ids
 
     @staticmethod
-    def _convert_user_message(content: list[Any]) -> list[dict[str, Any]]:
+    def _convert_user_message(
+        content: list[Any],
+        open_tool_call_ids: set[str],
+    ) -> tuple[list[dict[str, Any]], set[str]]:
         """Convert user message blocks (including tool results), preserving order."""
         result: list[dict[str, Any]] = []
         text_parts: list[str] = []
+        consumed_tool_call_ids: set[str] = set()
 
         def flush_text() -> None:
             if text_parts:
@@ -138,16 +154,24 @@ class AnthropicToOpenAIConverter:
                         else str(item)
                         for item in tool_content
                     )
-                result.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": get_block_attr(block, "tool_use_id"),
-                        "content": str(tool_content) if tool_content else "",
-                    }
-                )
+                tool_use_id = str(
+                    get_block_attr(block, "tool_use_id", "") or ""
+                ).strip()
+                rendered_tool_content = str(tool_content) if tool_content else ""
+                if tool_use_id and tool_use_id in open_tool_call_ids:
+                    consumed_tool_call_ids.add(tool_use_id)
+                    result.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_use_id,
+                            "content": rendered_tool_content,
+                        }
+                    )
+                else:
+                    text_parts.append(rendered_tool_content)
 
         flush_text()
-        return result
+        return result, consumed_tool_call_ids
 
     @staticmethod
     def convert_tools(
