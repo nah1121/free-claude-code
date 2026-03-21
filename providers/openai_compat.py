@@ -54,6 +54,7 @@ class OpenAICompatibleProvider(BaseProvider):
                 read=config.http_read_timeout,
                 write=config.http_write_timeout,
             ),
+            default_query={"beta": "true"},
         )
 
     async def cleanup(self) -> None:
