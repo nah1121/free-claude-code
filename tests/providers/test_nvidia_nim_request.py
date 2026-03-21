@@ -207,10 +207,11 @@ class TestBuildRequestBody:
             == "mcp__plugin_chrome_devtools_mcp_chrome_devtools__get_console_message"
         )
 
-        # Tool choice name should also be sanitized
+        # Tool choice name should also be sanitized and converted to OpenAI format
         assert "tool_choice" in body
+        assert body["tool_choice"]["type"] == "function"
         assert (
-            body["tool_choice"]["name"]
+            body["tool_choice"]["function"]["name"]
             == "mcp__plugin_chrome_devtools_mcp_chrome_devtools__get_console_message"
         )
 
