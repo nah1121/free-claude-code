@@ -160,7 +160,10 @@ class OpenAICompatibleProvider(BaseProvider):
         async with self._global_rate_limiter.concurrency_slot():
             try:
                 stream = await self._global_rate_limiter.execute_with_retry(
-                    self._client.chat.completions.create, **body, stream=True
+                    self._client.chat.completions.create,
+                    **body,
+                    stream=True,
+                    extra_query={"beta": "true"},
                 )
                 async for chunk in stream:
                     if getattr(chunk, "usage", None):

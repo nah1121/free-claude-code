@@ -142,6 +142,9 @@ async def test_stream_response_text(nim_provider):
         mock_create.return_value = mock_stream()
 
         events = [e async for e in nim_provider.stream_response(req)]
+        await_args = mock_create.await_args
+        assert await_args is not None
+        assert await_args.kwargs["extra_query"] == {"beta": "true"}
 
         assert len(events) > 0
         assert "event: message_start" in events[0]
