@@ -158,6 +158,20 @@ def test_sanitize_tool_choice_does_not_modify_original():
     assert result["name"] == "my_tool_name"
 
 
+def test_sanitize_tool_choice_nested_function_name():
+    """Tool choices with function.name should be sanitized without mutation."""
+    tool_choice = {
+        "type": "function",
+        "function": {"name": "uuid-with-hyphen", "description": "desc"},
+    }
+    result = AnthropicToOpenAIConverter.sanitize_tool_choice(tool_choice)
+
+    assert result is not None
+    assert result["function"]["name"] == "uuid_with_hyphen"
+    # Verify original input is not mutated
+    assert tool_choice["function"]["name"] == "uuid-with-hyphen"
+
+
 # --- Message Conversion Tests: User ---
 
 
