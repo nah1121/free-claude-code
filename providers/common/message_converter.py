@@ -174,6 +174,68 @@ class AnthropicToOpenAIConverter:
         ]
 
     @staticmethod
+    def convert_tool_choice(
+        tool_choice: dict[str, Any] | str | None,
+        *,
+        sanitize_name: bool = False,
+    ) -> dict[str, Any] | str | None:
+        """Convert Anthropic tool_choice to OpenAI format.
+
+        Anthropic format:
+        - "auto" (string)
+        - "any" (string)
+        - {"type": "tool", "name": "tool-name"}
+
+        OpenAI format:
+        - "auto" (string)
+        - "required" (for "any")
+        - {"type": "function", "function": {"name": "tool_name"}}
+
+        Args:
+            tool_choice: Anthropic tool_choice specification
+            sanitize_name: If True, replace hyphens with underscores in tool names
+
+        Returns:
+            OpenAI-format tool_choice or None
+        """
+        if tool_choice is None:
+            return None
+
+        # String values: "auto" stays "auto", "any" becomes "required"
+        if isinstance(tool_choice, str):
+            if tool_choice == "any":
+                return "required"
+            return tool_choice
+
+        # Dict format: convert from Anthropic to OpenAI structure
+        if isinstance(tool_choice, dict):
+            # If it's already in OpenAI format (has "function" key), just sanitize if needed
+            if "function" in tool_choice:
+                if sanitize_name:
+                    fn = tool_choice.get("function", {})
+                    if isinstance(fn, dict) and "name" in fn:
+                        return {
+                            "type": "function",
+                            "function": {
+                                **fn,
+                                "name": fn["name"].replace("-", "_"),
+                            },
+                        }
+                return tool_choice
+
+            # Convert from Anthropic format: {"type": "tool", "name": "..."}
+            tool_name = tool_choice.get("name", "")
+            if sanitize_name and isinstance(tool_name, str):
+                tool_name = tool_name.replace("-", "_")
+
+            return {
+                "type": "function",
+                "function": {"name": tool_name},
+            }
+
+        return tool_choice
+
+    @staticmethod
     def sanitize_tool_choice(
         tool_choice: dict[str, Any] | None,
     ) -> dict[str, Any] | None:
@@ -181,6 +243,8 @@ class AnthropicToOpenAIConverter:
 
         Handles both Anthropic-style {"type": "tool", "name": "..."} and
         OpenAI-style {"type": "function", "function": {"name": "..."}} payloads.
+
+        DEPRECATED: Use convert_tool_choice with sanitize_name=True instead.
         """
         if tool_choice is None:
             return None
@@ -267,11 +331,8 @@ def build_base_request_body(
         )
     tool_choice = getattr(request_data, "tool_choice", None)
     if tool_choice:
-        if sanitize_tool_names:
-            body["tool_choice"] = AnthropicToOpenAIConverter.sanitize_tool_choice(
-                tool_choice
-            )
-        else:
-            body["tool_choice"] = tool_choice
+        body["tool_choice"] = AnthropicToOpenAIConverter.convert_tool_choice(
+            tool_choice, sanitize_name=sanitize_tool_names
+        )
 
     return body

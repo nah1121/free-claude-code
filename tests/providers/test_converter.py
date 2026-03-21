@@ -172,6 +172,100 @@ def test_sanitize_tool_choice_nested_function_name():
     assert tool_choice["function"]["name"] == "uuid-with-hyphen"
 
 
+# --- Tool Choice Conversion Tests ---
+
+
+def test_convert_tool_choice_none():
+    """Test that convert_tool_choice handles None input."""
+    result = AnthropicToOpenAIConverter.convert_tool_choice(None)
+    assert result is None
+
+
+def test_convert_tool_choice_auto_string():
+    """Test that convert_tool_choice preserves 'auto' string."""
+    result = AnthropicToOpenAIConverter.convert_tool_choice("auto")
+    assert result == "auto"
+
+
+def test_convert_tool_choice_any_to_required():
+    """Test that convert_tool_choice converts 'any' to 'required' for OpenAI."""
+    result = AnthropicToOpenAIConverter.convert_tool_choice("any")
+    assert result == "required"
+
+
+def test_convert_tool_choice_anthropic_format():
+    """Test converting Anthropic tool_choice format to OpenAI format."""
+    tool_choice = {
+        "type": "tool",
+        "name": "my-tool-name",
+    }
+    result = AnthropicToOpenAIConverter.convert_tool_choice(tool_choice)
+
+    assert result is not None
+    assert isinstance(result, dict)
+    assert result["type"] == "function"
+    assert result["function"]["name"] == "my-tool-name"
+
+
+def test_convert_tool_choice_anthropic_format_with_sanitize():
+    """Test converting and sanitizing Anthropic tool_choice format."""
+    tool_choice = {
+        "type": "tool",
+        "name": "my-tool-name",
+    }
+    result = AnthropicToOpenAIConverter.convert_tool_choice(
+        tool_choice, sanitize_name=True
+    )
+
+    assert result is not None
+    assert isinstance(result, dict)
+    assert result["type"] == "function"
+    assert result["function"]["name"] == "my_tool_name"
+
+
+def test_convert_tool_choice_openai_format_preserves():
+    """Test that OpenAI format tool_choice is preserved."""
+    tool_choice = {
+        "type": "function",
+        "function": {"name": "my-tool-name"},
+    }
+    result = AnthropicToOpenAIConverter.convert_tool_choice(tool_choice)
+
+    assert result == tool_choice
+
+
+def test_convert_tool_choice_openai_format_with_sanitize():
+    """Test that OpenAI format tool_choice gets sanitized when requested."""
+    tool_choice = {
+        "type": "function",
+        "function": {"name": "my-tool-name"},
+    }
+    result = AnthropicToOpenAIConverter.convert_tool_choice(
+        tool_choice, sanitize_name=True
+    )
+
+    assert result is not None
+    assert isinstance(result, dict)
+    assert result["type"] == "function"
+    assert result["function"]["name"] == "my_tool_name"
+
+
+def test_convert_tool_choice_does_not_mutate_original():
+    """Test that convert_tool_choice does not modify the original dict."""
+    original = {"type": "tool", "name": "my-tool-name"}
+    result = AnthropicToOpenAIConverter.convert_tool_choice(
+        original, sanitize_name=True
+    )
+
+    # Original should be unchanged
+    assert original == {"type": "tool", "name": "my-tool-name"}
+    # Result should be converted and sanitized
+    assert result is not None
+    assert isinstance(result, dict)
+    assert result["type"] == "function"
+    assert result["function"]["name"] == "my_tool_name"
+
+
 # --- Message Conversion Tests: User ---
 
 
