@@ -55,6 +55,19 @@ def test_create_message_stream():
     assert b"message_start" in content or b"event:" in content
 
 
+def test_create_message_stream_openai_alias_path():
+    """OpenAI compatibility alias path maps to message streaming flow."""
+    payload = {
+        "model": "claude-3-sonnet",
+        "messages": [{"role": "user", "content": "Hi"}],
+        "max_tokens": 100,
+        "stream": True,
+    }
+    response = client.post("/chat/completions", json=payload)
+    assert response.status_code == 200
+    assert "text/event-stream" in response.headers.get("content-type", "")
+
+
 def test_model_mapping():
     # Test Haiku mapping
     _stream_response_calls.clear()

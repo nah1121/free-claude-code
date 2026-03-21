@@ -82,6 +82,17 @@ async def create_message(
         ) from e
 
 
+@router.post("/v1/chat/completions")
+@router.post("/chat/completions")
+async def create_chat_completion_alias(
+    request_data: MessagesRequest,
+    raw_request: Request,
+    settings: Settings = Depends(get_settings),
+):
+    """OpenAI-style compatibility aliases that map to Anthropic messages flow."""
+    return await create_message(request_data, raw_request, settings)
+
+
 @router.post("/v1/messages/count_tokens")
 async def count_tokens(request_data: TokenCountRequest):
     """Count tokens for a request."""
