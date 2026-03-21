@@ -213,3 +213,34 @@ class TestBuildRequestBody:
             body["tool_choice"]["name"]
             == "mcp__plugin_chrome_devtools_mcp_chrome_devtools__get_console_message"
         )
+
+    def test_tool_choice_nested_function_sanitization(self):
+        """OpenAI-style tool_choice.function.name should be sanitized."""
+
+        class MockTool:
+            def __init__(self, name):
+                self.name = name
+                self.description = "Test tool"
+                self.input_schema = {"type": "object"}
+
+        req = MagicMock()
+        req.model = "mistralai/devstral-2-123b-instruct-2512"
+        req.messages = [MagicMock(role="user", content="hi")]
+        req.max_tokens = 100
+        req.system = None
+        req.temperature = None
+        req.top_p = None
+        req.stop_sequences = None
+        req.tools = [MockTool("uuid-with-hyphens")]
+        req.tool_choice = {
+            "type": "function",
+            "function": {"name": "uuid-with-hyphens"},
+        }
+        req.extra_body = None
+        req.top_k = None
+
+        nim = NimSettings()
+        body = build_request_body(req, nim)
+
+        assert body["tools"][0]["function"]["name"] == "uuid_with_hyphens"
+        assert body["tool_choice"]["function"]["name"] == "uuid_with_hyphens"

@@ -177,13 +177,10 @@ class AnthropicToOpenAIConverter:
     def sanitize_tool_choice(
         tool_choice: dict[str, Any] | None,
     ) -> dict[str, Any] | None:
-        """Sanitize tool_choice by replacing hyphens with underscores in the name.
+        """Sanitize tool_choice by replacing hyphens with underscores in names.
 
-        Args:
-            tool_choice: The tool_choice dictionary that may contain a 'name' field
-
-        Returns:
-            A new dictionary with sanitized name, or None if tool_choice is None
+        Handles both Anthropic-style {"type": "tool", "name": "..."} and
+        OpenAI-style {"type": "function", "function": {"name": "..."}} payloads.
         """
         if tool_choice is None:
             return None
@@ -192,8 +189,15 @@ class AnthropicToOpenAIConverter:
         sanitized = tool_choice.copy()
 
         # If tool_choice has a 'name' field, sanitize it
-        if "name" in sanitized:
+        if "name" in sanitized and isinstance(sanitized["name"], str):
             sanitized["name"] = sanitized["name"].replace("-", "_")
+
+        fn = sanitized.get("function")
+        if isinstance(fn, dict):
+            fn_copy = fn.copy()
+            if "name" in fn_copy and isinstance(fn_copy["name"], str):
+                fn_copy["name"] = fn_copy["name"].replace("-", "_")
+            sanitized["function"] = fn_copy
 
         return sanitized
 
